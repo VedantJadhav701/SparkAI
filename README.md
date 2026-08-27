@@ -1,4 +1,25 @@
+---
+language:
+- en
+license: mit
+library_name: transformers
+tags:
+- llama
+- causal-lm
+- text-generation
+- pytorch
+- fineweb-edu
+- cosmopedia
+pipeline_tag: text-generation
+datasets:
+- HuggingFaceFW/fineweb-edu
+- HuggingFaceTB/cosmopedia-v2
+---
+
 # SparkAI-47M-Llama (Final — 10B Tokens)
+
+[![Hugging Face Model](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-SparkAI--47m--llama--10b--token-blue)](https://huggingface.co/vedantjadhav701/SparkAI-47m-llama-10b-token)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-SparkAI-black?logo=github)](https://github.com/VedantJadhav701/SparkAI)
 
 A ~48M parameter LLaMA-style decoder-only transformer, trained from scratch. This is the final checkpoint at this parameter scale — further tokens beyond this point showed diminishing/plateaued perplexity, suggesting the model has reached its practical capacity ceiling at 47M params on this data mix.
 
@@ -57,7 +78,26 @@ In machine learning, a neural network is a collection of neurons that are connec
 
 ---
 
-## 🚀 Quickstart & Local UI
+## 💻 Usage with Hugging Face `transformers`
+
+```python
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+repo_id = "vedantjadhav701/SparkAI-47m-llama-10b-token"
+tokenizer = AutoTokenizer.from_pretrained(repo_id)
+model = AutoModelForCausalLM.from_pretrained(repo_id)
+
+prompt = "In machine learning, a neural network is"
+inputs = tokenizer(prompt, return_tensors="pt")
+outputs = model.generate(**inputs, max_new_tokens=60, do_sample=True, temperature=0.8)
+
+print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+```
+
+---
+
+## 🚀 Quickstart & Local Gradio UI
 
 ### Installation
 ```bash
