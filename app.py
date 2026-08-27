@@ -38,6 +38,8 @@ print("Model loaded.")
 def generate_response(history, max_new_tokens, temperature, top_p, repetition_penalty):
     """
     Streams tokens back to the Gradio chat UI using chat template formatting.
+    For small models (~47M params), we limit context to the most recent turn(s)
+    to prevent context degradation and token looping.
     """
     messages = []
     # Build OpenAI format messages list from history (excluding last empty assistant turn if present)
@@ -45,6 +47,11 @@ def generate_response(history, max_new_tokens, temperature, top_p, repetition_pe
         (isinstance(history[-1], dict) and history[-1].get("content") == "") or
         (hasattr(history[-1], "content") and getattr(history[-1], "content") == "")
     )) else history
+
+    # Limit context to the last 2 turns (1 user + 1 previous assistant turn if available)
+    # to prevent context window saturation and error compounding in 47M models
+    if len(turns) > 2:
+        turns = turns[-2:]
 
     for turn in turns:
         if isinstance(turn, dict):
@@ -131,7 +138,7 @@ with gr.Blocks(title="SparkAI-47M-Llama-Instruct Chat") as demo:
         with gr.Column(scale=1):
             gr.Markdown("### Generation settings")
             max_new_tokens = gr.Slider(
-                minimum=10, maximum=300, value=100, step=10, label="Max new tokens", elem_id="slider-max-tokens"
+                minimum=10, maximum=300, value=80, step=10, label="Max new tokens", elem_id="slider-max-tokens"
             )
             temperature = gr.Slider(
                 minimum=0.1, maximum=1.5, value=0.6, step=0.05, label="Temperature", elem_id="slider-temperature"
