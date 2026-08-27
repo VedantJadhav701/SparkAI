@@ -84,7 +84,7 @@ with gr.Blocks(title="SparkAI-47M-Llama Chat") as demo:
 
     with gr.Row():
         with gr.Column(scale=3):
-            chatbot = gr.Chatbot(height=500, type="messages", elem_id="chat-history")
+            chatbot = gr.Chatbot(height=500, elem_id="chat-history")
             msg = gr.Textbox(
                 label="Prompt",
                 placeholder="Type a sentence to continue, e.g. 'The capital of France is'",
@@ -123,6 +123,8 @@ with gr.Blocks(title="SparkAI-47M-Llama Chat") as demo:
         last_turn = history[-1]
         if isinstance(last_turn, dict):
             user_message = last_turn.get("content", "")
+        elif hasattr(last_turn, "content"):
+            user_message = getattr(last_turn, "content", "")
         elif isinstance(last_turn, (list, tuple)) and len(last_turn) > 0:
             user_message = last_turn[0]
         else:
@@ -134,7 +136,10 @@ with gr.Blocks(title="SparkAI-47M-Llama Chat") as demo:
         for partial in generate_response(
             user_message, history, max_new_tokens, temperature, top_p, repetition_penalty
         ):
-            history[-1]["content"] = partial
+            if isinstance(history[-1], dict):
+                history[-1]["content"] = partial
+            elif hasattr(history[-1], "content"):
+                setattr(history[-1], "content", partial)
             yield history
 
     msg.submit(
