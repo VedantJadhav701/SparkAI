@@ -24,6 +24,12 @@ tokenizer = AutoTokenizer.from_pretrained(REPO_ID)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
+# Build EOS token list to include <|im_end|> and <|endoftext|>
+EOS_TOKEN_IDS = [tokenizer.eos_token_id] if tokenizer.eos_token_id is not None else []
+im_end_id = tokenizer.convert_tokens_to_ids("<|im_end|>")
+if im_end_id is not None and im_end_id != tokenizer.unk_token_id and im_end_id not in EOS_TOKEN_IDS:
+    EOS_TOKEN_IDS.append(im_end_id)
+
 model = AutoModelForCausalLM.from_pretrained(REPO_ID, torch_dtype=DTYPE).to(DEVICE)
 model.eval()
 print("Model loaded.")
@@ -75,6 +81,7 @@ def generate_response(history, max_new_tokens, temperature, top_p, repetition_pe
         top_p=top_p,
         repetition_penalty=repetition_penalty,
         pad_token_id=tokenizer.pad_token_id,
+        eos_token_id=EOS_TOKEN_IDS if EOS_TOKEN_IDS else None,
         streamer=streamer,
     )
 
@@ -83,6 +90,16 @@ def generate_response(history, max_new_tokens, temperature, top_p, repetition_pe
 
     partial_text = ""
     for new_text in streamer:
+        if "<|im_end|>" in new_text:
+            new_text = new_text.split("<|im_end|>")[0]
+            partial_text += new_text
+            yield partial_text
+            break
+        if "<|im_start|>" in new_text:
+            new_text = new_text.split("<|im_start|>")[0]
+            partial_text += new_text
+            yield partial_text
+            break
         partial_text += new_text
         yield partial_text
 
@@ -114,16 +131,16 @@ with gr.Blocks(title="SparkAI-47M-Llama-Instruct Chat") as demo:
         with gr.Column(scale=1):
             gr.Markdown("### Generation settings")
             max_new_tokens = gr.Slider(
-                minimum=10, maximum=300, value=120, step=10, label="Max new tokens", elem_id="slider-max-tokens"
+                minimum=10, maximum=300, value=100, step=10, label="Max new tokens", elem_id="slider-max-tokens"
             )
             temperature = gr.Slider(
-                minimum=0.1, maximum=1.5, value=0.7, step=0.05, label="Temperature", elem_id="slider-temperature"
+                minimum=0.1, maximum=1.5, value=0.6, step=0.05, label="Temperature", elem_id="slider-temperature"
             )
             top_p = gr.Slider(
                 minimum=0.1, maximum=1.0, value=0.9, step=0.05, label="Top-p", elem_id="slider-top-p"
             )
             repetition_penalty = gr.Slider(
-                minimum=1.0, maximum=2.0, value=1.15, step=0.05, label="Repetition penalty", elem_id="slider-rep-penalty"
+                minimum=1.0, maximum=2.0, value=1.2, step=0.05, label="Repetition penalty", elem_id="slider-rep-penalty"
             )
 
     def user_submit(message, history):
