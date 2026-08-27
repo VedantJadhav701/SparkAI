@@ -1,12 +1,14 @@
 ---
 language:
 - en
-license: mit
+license: apache-2.0
 library_name: transformers
 tags:
 - llama
 - causal-lm
 - text-generation
+- sft
+- chat
 - pytorch
 - fineweb-edu
 - cosmopedia
@@ -14,19 +16,20 @@ pipeline_tag: text-generation
 datasets:
 - HuggingFaceFW/fineweb-edu
 - HuggingFaceTB/cosmopedia-v2
+base_model: vedantjadhav701/SparkAI-47m-llama-10b-token
 ---
 
-# SparkAI-47M-Llama (Final — 10B Tokens)
+# SparkAI-47M-Llama-Instruct
 
-[![Hugging Face Model](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-SparkAI--47m--llama--10b--token-blue)](https://huggingface.co/vedantjadhav701/SparkAI-47m-llama-10b-token)
+[![Hugging Face Model](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-SparkAI--47m--llama--instruct-blue)](https://huggingface.co/vedantjadhav701/SparkAI-47m-llama-instruct)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-SparkAI-black?logo=github)](https://github.com/VedantJadhav701/SparkAI)
 
-A ~48M parameter LLaMA-style decoder-only transformer, trained from scratch. This is the final checkpoint at this parameter scale — further tokens beyond this point showed diminishing/plateaued perplexity, suggesting the model has reached its practical capacity ceiling at 47M params on this data mix.
+Instruction-tuned checkpoint of **SparkAI-47M-Llama** (~48M parameter decoder-only transformer), fine-tuned for chat and instruction following.
 
 ---
 
 ## 📐 Architecture
-* **Parameters:** ~48M
+* **Parameters:** ~48M (~47.4M non-embedding / tied embeddings)
 * **Layers:** 8
 * **Hidden Size:** 512
 * **Attention Heads:** 8 query heads, 2 key/value heads (Grouped Query Attention - GQA)
@@ -34,47 +37,16 @@ A ~48M parameter LLaMA-style decoder-only transformer, trained from scratch. Thi
 * **Positional Encoding:** RoPE (Rotary Position Embeddings)
 * **Normalization:** RMSNorm (Pre-normalization)
 * **Embeddings:** Tied embeddings, no bias terms
-* **Vocabulary Size:** 49,152 (SmolLM2 tokenizer, reused)
+* **Vocabulary Size:** 49,152 (SmolLM2 tokenizer with Chat Template)
 * **Sequence Length:** 1024
 
 ---
 
-## 🏋️ Training Details
-* **Dataset Mix:** FineWeb-Edu (`sample-100BT`) + Cosmopedia-v2, streamed and packed (**85% / 15%** mix)
-* **Total Tokens:** 10.00 Billion (210 tokens/param)
-* **Optimizer:** AdamW with Cosine LR schedule + warmup
-* **Hardware:** NVIDIA A100 80GB PCIe
-* **Final Eval Perplexity:** 31.46
-
-### 📈 Training Progression
-
-| Tokens | Perplexity |
-| :--- | :--- |
-| **630M** | 43.49 |
-| **3.77B** | 31.30 |
-| **7.00B** | — |
-| **10.00B** | 31.46 |
-
-> **Note on Saturation:** Perplexity plateaued between 3.77B and 10.00B tokens despite continued training, indicating the model has likely saturated its representational capacity at this size. Scaling further would require a larger architecture rather than additional tokens.
-
----
-
-## 🎯 Intended Use
-Research / proof-of-concept checkpoint demonstrating small-LM pretraining from scratch. Shows coherent local grammar and reasonable short-range topical consistency; factual accuracy and long-range coherence are limited, as expected at this model scale.
-
----
-
-## 💬 Sample Generation
-
-**Prompt:**
-```text
-In machine learning, a neural network is
-```
-
-**Output:**
-```text
-In machine learning, a neural network is a collection of neurons that are connected to a set of neurons in a specific region of the brain. Each neuron is a cluster of neurons. These clusters of neurons are called neurons. The neural network...
-```
+## 🏋️ Training & Fine-Tuning Details
+* **Base Checkpoint:** [`vedantjadhav701/SparkAI-47m-llama-10b-token`](https://huggingface.co/vedantjadhav701/SparkAI-47m-llama-10b-token)
+* **Pretraining Data:** FineWeb-Edu (`sample-100BT`) + Cosmopedia-v2 (10.00B tokens)
+* **Fine-Tuning Type:** Supervised Fine-Tuning (SFT) / Chat alignment
+* **License:** Apache 2.0
 
 ---
 
@@ -84,13 +56,17 @@ In machine learning, a neural network is a collection of neurons that are connec
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-repo_id = "vedantjadhav701/SparkAI-47m-llama-10b-token"
+repo_id = "vedantjadhav701/SparkAI-47m-llama-instruct"
 tokenizer = AutoTokenizer.from_pretrained(repo_id)
 model = AutoModelForCausalLM.from_pretrained(repo_id)
 
-prompt = "In machine learning, a neural network is"
+messages = [
+    {"role": "user", "content": "What is machine learning?"}
+]
+
+prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 inputs = tokenizer(prompt, return_tensors="pt")
-outputs = model.generate(**inputs, max_new_tokens=60, do_sample=True, temperature=0.8)
+outputs = model.generate(**inputs, max_new_tokens=120, do_sample=True, temperature=0.7)
 
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
 ```
